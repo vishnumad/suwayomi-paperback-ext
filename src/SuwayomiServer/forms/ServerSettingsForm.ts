@@ -8,7 +8,7 @@ import {
   type SelectRowProps,
 } from "@paperback/types";
 
-import { authOptions } from "../network/auth";
+import { AUTH_OPTIONS, type AuthMethod } from "../network/auth";
 import { graphql } from "../network/graphql";
 import { makeGraphQLRequest } from "../network/request";
 import { localStore, LocalStoreKeys, secureStore, SecureStoreKeys } from "../util/storage";
@@ -19,6 +19,9 @@ export class ServerSettingsForm extends Form {
 
   private serverUrlState = state({
     initialValue: localStore.getValue(LocalStoreKeys.serverUrl) ?? "",
+    onChange: () => {
+      this.clearLoginState();
+    },
   });
 
   private authMethod = state({
@@ -68,6 +71,7 @@ export class ServerSettingsForm extends Form {
     secureStore.setValue(SecureStoreKeys.username, null);
     secureStore.setValue(SecureStoreKeys.password, null);
     this.reloadForm();
+    Application.invalidateDiscoverSections();
   }
 
   serverUrlSection() {
@@ -97,34 +101,30 @@ export class ServerSettingsForm extends Form {
     }
 
     const authSectionRows: FormItemElement<unknown>[] = [];
+
+    const authMethodLabel = (method: AuthMethod) => {
+      switch (method) {
+        case "none":
+          return "None";
+        case "basic_auth":
+          return "Basic Auth";
+        case "simple_login":
+          return "Simple Login";
+        case "ui_login":
+          return "UI Login";
+        default:
+          return method;
+      }
+    };
+
     authSectionRows.push(
       SelectRow("auth-method-select", {
         title: "Authentication Method",
         layout: "list",
-        items: authOptions.map((option) => {
-          let title;
-          switch (option) {
-            case "none":
-              title = "None";
-              break;
-            case "basic_auth":
-              title = "Basic Auth";
-              break;
-            case "simple_login":
-              title = "Simple Login";
-              break;
-            case "ui_login":
-              title = "UI Login";
-              break;
-            default:
-              title = option;
-          }
-
-          return {
-            id: option,
-            title,
-          };
-        }),
+        items: AUTH_OPTIONS.map((option) => ({
+          id: option,
+          title: authMethodLabel(option),
+        })),
         value: this.authMethod.value,
         onValueChange: this.authMethod.selector as SelectRowProps["onValueChange"],
         minItemCount: 1,
@@ -159,9 +159,12 @@ export class ServerSettingsForm extends Form {
   }
 
   override async formDidSubmit() {
+    Application.invalidateDiscoverSections();
+
     // Validate Server URL
     const serverUrlError = this.validateServerUrl();
     if (serverUrlError) {
+      console.error(serverUrlError);
       throw new Error(serverUrlError);
     }
 
@@ -170,6 +173,8 @@ export class ServerSettingsForm extends Form {
 
     const [authMethod] = this.authMethod.value;
     localStore.setValue(LocalStoreKeys.authMethod, authMethod ?? "none");
+
+    if (this.isLoggedIn()) return;
 
     const username = this.usernameState.value;
     const password = this.passwordState.value;
@@ -192,6 +197,7 @@ export class ServerSettingsForm extends Form {
       });
 
       if (!data || errors) {
+        console.error("Login failed:", errors);
         throw new Error(`Failed to log in with provided credentials.`);
       }
 
@@ -200,7 +206,9 @@ export class ServerSettingsForm extends Form {
     }
 
     if (authMethod === "basic_auth" || authMethod === "simple_login") {
-      throw new Error(`Authentication method ${authMethod} is not implemented yet.`);
+      const errorMessage = `Authentication method ${authMethod} is not implemented.`;
+      console.error(errorMessage);
+      throw new Error(errorMessage);
     }
   }
 }

@@ -20,8 +20,10 @@ export function state<T>(params: {
       return Application.Selector<StateType<T>, typeof this.updateValue>(this, "updateValue");
     },
     async updateValue(value: T) {
-      stateValue = value;
-      params.onChange?.(value);
+      if (value !== stateValue) {
+        stateValue = value;
+        await params.onChange?.(value);
+      }
     },
   };
 }

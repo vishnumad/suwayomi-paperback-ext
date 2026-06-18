@@ -1,5 +1,3 @@
 .DS_Store
 /node_modules
 /bundles
-
-graphql-env.d.ts

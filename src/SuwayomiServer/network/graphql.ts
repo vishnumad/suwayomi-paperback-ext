@@ -4,7 +4,11 @@ import type { introspection } from "./graphql-env";
 
 export const graphql = initGraphQLTada<{
   introspection: introspection;
+  scalars: {
+    Cursor: string;
+  };
 }>();
 
-export type { ResultOf, TadaDocumentNode, VariablesOf } from "gql.tada";
+export { readFragment } from "gql.tada";
+export type { ResultOf, TadaDocumentNode, VariablesOf, FragmentOf } from "gql.tada";
 export { print } from "graphql";

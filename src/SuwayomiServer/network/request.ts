@@ -1,9 +1,9 @@
 import type { Request, Response } from "@paperback/types";
 
-import { secureStore, SecureStoreKeys, LocalStoreKeys, localStore } from "../util/storage";
+import { LocalStoreKeys, localStore } from "../util/storage";
 import { formatURL } from "../util/url";
-import { getAuthHeaders } from "./auth";
-import { graphql, print, type TadaDocumentNode } from "./graphql";
+import { attemptGraphQLTokenRefresh, getAuthHeaders, UNAUTHED_HEADER } from "./auth";
+import { print, type TadaDocumentNode } from "./graphql";
 
 type GraphQLResponse<Result = unknown> = {
   data: Result | null;
@@ -51,13 +51,14 @@ async function createGraphQLRequest<Result = unknown, Variables = unknown>(
   const serverURL = baseURL || storedServerURL;
 
   if (!serverURL) {
-    const message = "ERROR: Server URL is not set.";
-    throw new Error(message);
+    const errorMessage = "Server URL is not set.";
+    console.error(errorMessage);
+    throw new Error(errorMessage);
   }
 
   const graphqlEndpoint = `${formatURL(serverURL)}/api/graphql`;
 
-  let requestHeaders = {
+  let requestHeaders: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
@@ -65,6 +66,12 @@ async function createGraphQLRequest<Result = unknown, Variables = unknown>(
     requestHeaders = {
       ...requestHeaders,
       ...getAuthHeaders(),
+    };
+  } else {
+    // mark request as unauthed so interceptor does not add auth headers
+    requestHeaders = {
+      ...requestHeaders,
+      [UNAUTHED_HEADER]: "true",
     };
   }
 
@@ -84,27 +91,6 @@ function isUnauthorized(response: GraphQLResponse) {
     response.status === 401 ||
     response.errors?.some((error) => error.message.includes("UnauthorizedException: Unauthorized"))
   );
-}
-
-async function attemptGraphQLTokenRefresh() {
-  const storedRefreshToken = secureStore.getValue(SecureStoreKeys.refreshToken);
-  const { data } = await makeGraphQLRequest({
-    query: graphql(`
-      mutation RefreshToken($refreshToken: String!) {
-        refreshToken(input: { refreshToken: $refreshToken }) {
-          accessToken
-        }
-      }
-    `),
-    variables: {
-      refreshToken: storedRefreshToken ?? "",
-    },
-    authenticated: false,
-  });
-
-  if (data?.refreshToken.accessToken) {
-    secureStore.setValue(SecureStoreKeys.accessToken, data.refreshToken.accessToken);
-  }
 }
 
 function parseResponseData<Result>(response: Response, data: ArrayBuffer): GraphQLResponse<Result> {

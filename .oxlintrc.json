@@ -4,6 +4,7 @@
   "categories": {
     "correctness": "error"
   },
+  "ignorePatterns": ["graphql.schema.json", "**/graphql-env.d.ts"],
   "rules": {},
   "env": {
     "builtin": true
