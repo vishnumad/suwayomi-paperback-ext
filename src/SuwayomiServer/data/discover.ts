@@ -6,7 +6,7 @@ import type {
 
 import { graphql, readFragment, type FragmentOf } from "../network/graphql";
 import { localStore, LocalStoreKeys } from "../util/storage";
-import { formatURL } from "../util/url";
+import { formatUrl } from "../util/url";
 
 export const DiscoverSectionId = {
   continueReading: "continue-reading",
@@ -40,7 +40,7 @@ export const ContinueReadingFragment = graphql(`
 
 export function getContinueReadingData(ref: FragmentOf<typeof ContinueReadingFragment>) {
   const data = readFragment(ContinueReadingFragment, ref);
-  const serverUrl = formatURL(localStore.getValue(LocalStoreKeys.serverUrl) ?? "");
+  const serverUrl = formatUrl(localStore.getValue(LocalStoreKeys.serverUrl) ?? "");
 
   const items: ProminentCarouselItem[] = [];
   for (const chapter of data.lastReadChapters.nodes) {
@@ -94,7 +94,7 @@ export const RecentUpdatesFragment = graphql(`
 
 export function getRecentUpdatesData(ref: FragmentOf<typeof RecentUpdatesFragment>) {
   const data = readFragment(RecentUpdatesFragment, ref);
-  const serverUrl = formatURL(localStore.getValue(LocalStoreKeys.serverUrl) ?? "");
+  const serverUrl = formatUrl(localStore.getValue(LocalStoreKeys.serverUrl) ?? "");
 
   const items: ChapterUpdatesCarouselItem[] = [];
   const chapters = data.recentlyUpdatedChapters.nodes;
@@ -139,7 +139,7 @@ export const CategoryMangasFragment = graphql(`
 
 export function getCategoryMangasData(ref: FragmentOf<typeof CategoryMangasFragment>) {
   const data = readFragment(CategoryMangasFragment, ref);
-  const serverUrl = formatURL(localStore.getValue(LocalStoreKeys.serverUrl) ?? "");
+  const serverUrl = formatUrl(localStore.getValue(LocalStoreKeys.serverUrl) ?? "");
 
   const items: SimpleCarouselItem[] = [];
   const mangas = data.mangas.nodes;

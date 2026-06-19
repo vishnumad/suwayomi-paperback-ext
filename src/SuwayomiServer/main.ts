@@ -6,9 +6,17 @@ import {
   type DiscoverSectionItem,
   type PagedResults,
   DiscoverSectionType,
+  type Chapter,
+  type ChapterDetails,
 } from "@paperback/types";
 
 import { AvailableCategoriesFragment, getAvailableSelectedCategories } from "./data/categories";
+import {
+  ChapterDetailsFragment,
+  ChaptersFragment,
+  getChapterDetailsData,
+  getChaptersData,
+} from "./data/chapters";
 import {
   CategoryMangasFragment,
   ContinueReadingFragment,
@@ -18,6 +26,7 @@ import {
   getRecentUpdatesData,
   RecentUpdatesFragment,
 } from "./data/discover";
+import { getMangaDetailsData, MangaDetailsFragment } from "./data/manga-details";
 import { SettingsForm } from "./forms/SettingsForm";
 import { isAuthed } from "./network/auth";
 import { graphql } from "./network/graphql";
@@ -187,8 +196,77 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
     };
   }
 
-  async getMangaDetails(_mangaId: string): Promise<SourceManga> {
-    throw new Error("Method not implemented.");
+  async getMangaDetails(mangaId: string): Promise<SourceManga> {
+    const { data, errors } = await makeGraphQLRequest({
+      query: graphql(
+        `
+          query MangaDetailsQuery($mangaId: Int!) {
+            ...MangaDetailsFragment
+          }
+        `,
+        [MangaDetailsFragment],
+      ),
+      variables: {
+        mangaId: parseInt(mangaId, 10),
+      },
+    });
+
+    if (!data || errors) {
+      const errorMessage = `manga details for ${mangaId} empty`;
+      console.error(errorMessage, errors);
+      throw new Error(errorMessage);
+    }
+
+    return getMangaDetailsData(data);
+  }
+
+  async getChapters(sourceManga: SourceManga, sinceDate?: Date): Promise<Chapter[]> {
+    const { data, errors } = await makeGraphQLRequest({
+      query: graphql(
+        `
+          query ChaptersQuery($mangaId: Int!, $sinceDate: LongString) {
+            ...ChaptersFragment
+          }
+        `,
+        [ChaptersFragment],
+      ),
+      variables: {
+        mangaId: parseInt(sourceManga.mangaId, 10),
+        sinceDate: sinceDate ? sinceDate.getTime().toString() : null,
+      },
+    });
+
+    if (!data || errors) {
+      const errorMessage = `chapters for manga ${sourceManga.mangaId} empty`;
+      console.error(errorMessage, errors);
+      throw new Error(errorMessage);
+    }
+
+    return getChaptersData(data, sourceManga);
+  }
+
+  async getChapterDetails(chapter: Chapter): Promise<ChapterDetails> {
+    const { data, errors } = await makeGraphQLRequest({
+      query: graphql(
+        `
+          mutation ChapterDetailsMutation($chapterId: Int!) {
+            ...ChapterDetailsFragment
+          }
+        `,
+        [ChapterDetailsFragment],
+      ),
+      variables: {
+        chapterId: parseInt(chapter.chapterId, 10),
+      },
+    });
+
+    if (!data || errors) {
+      const errorMessage = `chapter details for chapter ${chapter.chapterId} empty`;
+      console.error(errorMessage, errors);
+      throw new Error(errorMessage);
+    }
+
+    return getChapterDetailsData(data);
   }
 
   async getSettingsForm(): Promise<Form> {

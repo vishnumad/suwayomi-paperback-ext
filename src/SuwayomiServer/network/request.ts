@@ -1,7 +1,7 @@
 import type { Request, Response } from "@paperback/types";
 
 import { LocalStoreKeys, localStore } from "../util/storage";
-import { formatURL } from "../util/url";
+import { formatUrl } from "../util/url";
 import { attemptGraphQLTokenRefresh, getAuthHeaders, UNAUTHED_HEADER } from "./auth";
 import { print, type TadaDocumentNode } from "./graphql";
 
@@ -56,7 +56,7 @@ async function createGraphQLRequest<Result = unknown, Variables = unknown>(
     throw new Error(errorMessage);
   }
 
-  const graphqlEndpoint = `${formatURL(serverURL)}/api/graphql`;
+  const graphqlEndpoint = `${formatUrl(serverURL)}/api/graphql`;
 
   let requestHeaders: Record<string, string> = {
     "Content-Type": "application/json",

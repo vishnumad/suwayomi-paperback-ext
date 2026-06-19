@@ -12,7 +12,7 @@ export default {
     SourceIntents.SETTINGS_FORM_PROVIDING,
     SourceIntents.DISCOVER_SECTION_PROVIDING,
     // SourceIntents.SEARCH_RESULT_PROVIDING,
-    // SourceIntents.CHAPTER_PROVIDING,
+    SourceIntents.CHAPTER_PROVIDING,
   ],
   badges: [
     {
