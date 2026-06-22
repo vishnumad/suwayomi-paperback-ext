@@ -8,9 +8,21 @@ import {
   DiscoverSectionType,
   type Chapter,
   type ChapterDetails,
+  type ChapterReadActionQueueProcessingResult,
+  type MangaProgress,
+  type TrackedMangaChapterReadAction,
+  type ManagedCollection,
+  type ManagedCollectionChangeset,
 } from "@paperback/types";
 
-import { AvailableCategoriesFragment, getAvailableSelectedCategories } from "./data/categories";
+import {
+  AllCategoryMangasFragment,
+  AvailableCategoriesFragment,
+  getAllCategoryMangasData,
+  getAvailableCategories,
+  getAvailableSelectedCategories,
+  UpdateCategoriesMutation,
+} from "./data/categories";
 import {
   ChapterDetailsFragment,
   ChaptersFragment,
@@ -27,6 +39,12 @@ import {
   RecentUpdatesFragment,
 } from "./data/discover";
 import { getMangaDetailsData, MangaDetailsFragment } from "./data/manga-details";
+import {
+  getMangaProgressData,
+  MangaProgressFragment,
+  MarkChaptersReadMutation,
+} from "./data/manga-progress";
+import { ProgressManagementForm } from "./forms/ProgressManagementForm";
 import { SettingsForm } from "./forms/SettingsForm";
 import { isAuthed } from "./network/auth";
 import { graphql } from "./network/graphql";
@@ -125,8 +143,9 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
       });
 
       if (!data || errors) {
-        console.error(`discover ${section.id} section empty`, errors);
-        return { items: [] };
+        const errorMessage = `couldn't fetch reading history for section ${section.id}`;
+        console.error(errorMessage, errors);
+        throw new Error(errorMessage);
       }
 
       const items = getContinueReadingData(data);
@@ -149,8 +168,9 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
       });
 
       if (!data || errors) {
-        console.error(`discover ${section.id} section empty`, errors);
-        return { items: [] };
+        const errorMessage = `couldn't fetch chapter updates for section ${section.id}`;
+        console.error(errorMessage, errors);
+        throw new Error(errorMessage);
       }
 
       const { items, pageInfo } = getRecentUpdatesData(data);
@@ -179,8 +199,9 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
       });
 
       if (!data || errors) {
-        console.error(`discover ${section.id} section empty`, errors);
-        return { items: [] };
+        const errorMessage = `couldn't fetch mangas for category ${section.id}`;
+        console.error(errorMessage, errors);
+        throw new Error(errorMessage);
       }
 
       const { items, pageInfo } = getCategoryMangasData(data);
@@ -212,7 +233,7 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
     });
 
     if (!data || errors) {
-      const errorMessage = `manga details for ${mangaId} empty`;
+      const errorMessage = `couldn't fetch manga details for manga ${mangaId}`;
       console.error(errorMessage, errors);
       throw new Error(errorMessage);
     }
@@ -224,7 +245,7 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
     const { data, errors } = await makeGraphQLRequest({
       query: graphql(
         `
-          query ChaptersQuery($mangaId: Int!, $sinceDate: LongString) {
+          query ChaptersQuery($mangaId: Int!, $sinceDate: LongString, $isRead: Boolean) {
             ...ChaptersFragment
           }
         `,
@@ -237,7 +258,7 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
     });
 
     if (!data || errors) {
-      const errorMessage = `chapters for manga ${sourceManga.mangaId} empty`;
+      const errorMessage = `couldn't fetch chapters for manga ${sourceManga.mangaId}`;
       console.error(errorMessage, errors);
       throw new Error(errorMessage);
     }
@@ -261,12 +282,196 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
     });
 
     if (!data || errors) {
-      const errorMessage = `chapter details for chapter ${chapter.chapterId} empty`;
+      const errorMessage = `couldn't fetch chapter details for chapter ${chapter.chapterId}`;
       console.error(errorMessage, errors);
       throw new Error(errorMessage);
     }
 
     return getChapterDetailsData(data);
+  }
+
+  async getMangaProgressManagementForm(_sourceManga: SourceManga): Promise<Form> {
+    return new ProgressManagementForm();
+  }
+
+  async getMangaProgress(sourceManga: SourceManga): Promise<MangaProgress | undefined> {
+    const { data, errors } = await makeGraphQLRequest({
+      query: graphql(
+        `
+          query MangaProgressQuery($mangaId: Int!) {
+            ...MangaProgressFragment
+          }
+        `,
+        [MangaProgressFragment],
+      ),
+      variables: {
+        mangaId: parseInt(sourceManga.mangaId, 10),
+      },
+    });
+
+    if (!data || errors) {
+      console.error(`couldn't fetch progress for manga ${sourceManga.mangaId}`, errors);
+      return undefined;
+    }
+
+    const progress = getMangaProgressData(data, sourceManga);
+    if (!progress) {
+      return undefined;
+    }
+
+    return {
+      sourceManga,
+      lastReadChapter: progress.lastReadChapter,
+      lastReadTime: progress.lastReadTime,
+    };
+  }
+
+  async processChapterReadActionQueue(
+    actions: TrackedMangaChapterReadAction[],
+  ): Promise<ChapterReadActionQueueProcessingResult> {
+    const successfulItems: string[] = [];
+    const failedItems: string[] = [];
+
+    const actionsByMangaId = new Map<string, TrackedMangaChapterReadAction[]>();
+    for (const action of actions) {
+      const mangaId = action.chapterMangaId;
+      if (!actionsByMangaId.has(mangaId)) {
+        actionsByMangaId.set(mangaId, []);
+      }
+      actionsByMangaId.get(mangaId)!.push(action);
+    }
+
+    for (const [mangaId, readActions] of actionsByMangaId.entries()) {
+      const mangaTitle = readActions[0]?.sourceManga.mangaInfo.primaryTitle || "Unknown";
+
+      const actionIds = readActions.map((action) => action.id);
+      const chapterIds = readActions.map((action) => parseInt(action.chapterId, 10));
+
+      const { errors } = await makeGraphQLRequest({
+        query: MarkChaptersReadMutation,
+        variables: {
+          chapterIds,
+          mangaId: parseInt(mangaId, 10),
+        },
+      });
+
+      if (errors) {
+        console.error(
+          `processChapterReadActionQueue: failed to mark chapter(s) for ${mangaId} (${mangaTitle}) as read.`,
+          errors,
+        );
+        failedItems.push(...actionIds);
+      } else {
+        console.log(
+          `processChapterReadActionQueue: marked ${actionIds.length} chapter(s) for ${mangaId} (${mangaTitle}) as read.`,
+        );
+        successfulItems.push(...actionIds);
+      }
+    }
+
+    return {
+      successfulItems,
+      failedItems,
+    };
+  }
+
+  async getManagedLibraryCollections(): Promise<ManagedCollection[]> {
+    const { data, errors } = await makeGraphQLRequest({
+      query: graphql(
+        `
+          query ManagedLibraryCollectionsQuery {
+            ...AvailableCategoriesFragment
+          }
+        `,
+        [AvailableCategoriesFragment],
+      ),
+    });
+
+    if (!data || errors) {
+      const errorMessage = `couldn't fetch available categories`;
+      console.error(errorMessage, errors);
+      throw new Error(errorMessage);
+    }
+
+    const categories = getAvailableCategories(data);
+    return categories.map((category) => {
+      return {
+        id: category.id.toString(),
+        title: category.name,
+      };
+    });
+  }
+
+  async commitManagedCollectionChanges(changeset: ManagedCollectionChangeset): Promise<void> {
+    const categoryId = parseInt(changeset.collection.id, 10);
+
+    const addedMangas = changeset.additions.map((manga) => parseInt(manga.mangaId, 10));
+    const removedMangas = changeset.deletions.map((manga) => parseInt(manga.mangaId, 10));
+
+    if (addedMangas.length > 0) {
+      const { errors } = await makeGraphQLRequest({
+        query: UpdateCategoriesMutation,
+        variables: {
+          mangaIds: addedMangas,
+          addToCategories: [categoryId],
+          removeFromCategories: [],
+        },
+      });
+
+      if (errors) {
+        console.error(
+          `commitManagedCollectionChanges: failed to add manga(s) to category ${categoryId}`,
+          errors,
+        );
+        throw new Error(`Failed to add manga(s) to collection ${changeset.collection.title}`);
+      }
+    }
+
+    if (removedMangas.length > 0) {
+      const { errors } = await makeGraphQLRequest({
+        query: UpdateCategoriesMutation,
+        variables: {
+          mangaIds: removedMangas,
+          addToCategories: [],
+          removeFromCategories: [categoryId],
+        },
+      });
+
+      if (errors) {
+        console.error(
+          `commitManagedCollectionChanges: failed to remove manga(s) from category ${categoryId}`,
+          errors,
+        );
+        throw new Error(`Failed to remove manga(s) from collection ${changeset.collection.title}`);
+      }
+    }
+  }
+
+  async getSourceMangaInManagedCollection(
+    managedCollection: ManagedCollection,
+  ): Promise<SourceManga[]> {
+    const { data, errors } = await makeGraphQLRequest({
+      query: graphql(
+        `
+          query SourceMangaInManagedCollectionQuery($categoryId: Int!) {
+            ...AllCategoryMangasFragment
+          }
+        `,
+        [AllCategoryMangasFragment],
+      ),
+      variables: {
+        categoryId: parseInt(managedCollection.id, 10),
+      },
+    });
+
+    if (!data || errors) {
+      const errorMessage = `couldn't fetch manga in category ${managedCollection.id}`;
+      console.error(errorMessage, errors);
+      throw new Error(errorMessage);
+    }
+
+    const mangas = getAllCategoryMangasData(data);
+    return mangas;
   }
 
   async getSettingsForm(): Promise<Form> {

@@ -11,8 +11,9 @@ export default {
   capabilities: [
     SourceIntents.SETTINGS_FORM_PROVIDING,
     SourceIntents.DISCOVER_SECTION_PROVIDING,
-    // SourceIntents.SEARCH_RESULT_PROVIDING,
     SourceIntents.CHAPTER_PROVIDING,
+    SourceIntents.PROGRESS_PROVIDING,
+    SourceIntents.MANAGED_COLLECTION_PROVIDING,
   ],
   badges: [
     {

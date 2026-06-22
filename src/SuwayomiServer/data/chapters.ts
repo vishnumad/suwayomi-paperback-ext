@@ -1,13 +1,18 @@
 import type { Chapter, ChapterDetails, SourceManga } from "@paperback/types";
 
 import { graphql, readFragment, type FragmentOf } from "../network/graphql";
+import { parseChapterTitle, parseChapterVolume } from "../util/chapter";
 import { localStore, LocalStoreKeys } from "../util/storage";
 import { formatUrl } from "../util/url";
 
 export const ChaptersFragment = graphql(`
   fragment ChaptersFragment on Query {
     chapters(
-      filter: { mangaId: { equalTo: $mangaId }, uploadDate: { lessThan: $sinceDate } }
+      filter: {
+        mangaId: { equalTo: $mangaId }
+        uploadDate: { lessThan: $sinceDate }
+        isRead: { equalTo: $isRead }
+      }
       order: [{ by: SOURCE_ORDER, byType: DESC }]
     ) {
       nodes {
@@ -34,19 +39,14 @@ export function getChaptersData(
 
   const chapters: Chapter[] = [];
   for (const chapter of data.chapters.nodes) {
-    const title = chapter.name
-      .replace(/^((Chapter|Episode|Ch\.?)\s*[\d.]+|#\s*[\d.]+)\s*(\bS\d+\b)?\s*[-:]?\s*/i, "")
-      .trim();
-    const volume = Number(chapter.name.match(/\bS(\d+)\b/i)?.[1] ?? 0);
-
     chapters.push({
       chapterId: chapter.id.toString(),
       sourceManga,
-      title,
-      volume,
+      title: parseChapterTitle(chapter.name),
+      volume: parseChapterVolume(chapter.name),
       langCode: chapter.manga.source?.lang ?? "en",
       chapNum: chapter.chapterNumber,
-      version: chapter.scanlator ?? "Unknown",
+      version: chapter.scanlator ?? undefined,
       publishDate: new Date(parseInt(chapter.uploadDate, 10)),
     });
   }
