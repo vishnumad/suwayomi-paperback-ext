@@ -8,6 +8,14 @@ export const UNAUTHED_HEADER = "X-Unauthed-Request";
 export const AUTH_OPTIONS = ["none", "basic_auth", "simple_login", "ui_login"] as const;
 export type AuthMethod = (typeof AUTH_OPTIONS)[number];
 
+const RefreshTokenMutation = graphql(`
+  mutation RefreshToken($refreshToken: String!) {
+    refreshToken(input: { refreshToken: $refreshToken }) {
+      accessToken
+    }
+  }
+`);
+
 export function isAuthed() {
   const serverUrl = localStore.getValue(LocalStoreKeys.serverUrl);
   if (!serverUrl) return false;
@@ -17,9 +25,12 @@ export function isAuthed() {
     case "none": {
       return true;
     }
-    case "basic_auth":
+    case "basic_auth": {
+      const authString = secureStore.getValue(SecureStoreKeys.basicAuth);
+      return Boolean(authString);
+    }
     case "simple_login": {
-      const errorMessage = `Auth method ${authMethod} not yet implemented.`;
+      const errorMessage = `Auth method ${authMethod} is not supported.`;
       console.error(errorMessage);
       return false;
     }
@@ -36,9 +47,20 @@ export function getAuthHeaders() {
     case "none": {
       return undefined;
     }
-    case "basic_auth":
+    case "basic_auth": {
+      const authString = secureStore.getValue(SecureStoreKeys.basicAuth);
+      if (!authString) {
+        const errorMessage = `Login credentials not found. Try logging in again in settings.`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
+      }
+
+      return {
+        [AUTHED_HEADER]: `Basic ${authString}`,
+      };
+    }
     case "simple_login": {
-      const errorMessage = `Auth method ${authMethod} not yet implemented. Please use "ui_login" instead.`;
+      const errorMessage = `Auth method ${authMethod} is not supported.`;
       console.error(errorMessage);
       throw new Error(errorMessage);
     }
@@ -60,13 +82,7 @@ export function getAuthHeaders() {
 export async function attemptGraphQLTokenRefresh() {
   const storedRefreshToken = secureStore.getValue(SecureStoreKeys.refreshToken);
   const { data } = await makeGraphQLRequest({
-    query: graphql(`
-      mutation RefreshToken($refreshToken: String!) {
-        refreshToken(input: { refreshToken: $refreshToken }) {
-          accessToken
-        }
-      }
-    `),
+    query: RefreshTokenMutation,
     variables: {
       refreshToken: storedRefreshToken ?? "",
     },

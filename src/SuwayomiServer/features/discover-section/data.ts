@@ -4,9 +4,9 @@ import type {
   SimpleCarouselItem,
 } from "@paperback/types";
 
-import { graphql, readFragment, type FragmentOf } from "../network/graphql";
-import { localStore, LocalStoreKeys } from "../util/storage";
-import { formatUrl } from "../util/url";
+import { graphql, readFragment, type FragmentOf } from "../../network/graphql";
+import { localStore, LocalStoreKeys } from "../../util/storage";
+import { formatUrl } from "../../util/url";
 
 export const DiscoverSectionId = {
   continueReading: "continue-reading",

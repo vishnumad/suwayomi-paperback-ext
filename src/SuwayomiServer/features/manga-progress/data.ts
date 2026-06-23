@@ -1,7 +1,7 @@
 import type { Chapter, SourceManga } from "@paperback/types";
 
-import { graphql, readFragment, type FragmentOf } from "../network/graphql";
-import { parseChapterTitle, parseChapterVolume } from "../util/chapter";
+import { graphql, readFragment, type FragmentOf } from "../../network/graphql";
+import { parseChapterTitle, parseChapterVolume } from "../../util/chapter";
 
 export const MangaProgressFragment = graphql(`
   fragment MangaProgressFragment on Query {

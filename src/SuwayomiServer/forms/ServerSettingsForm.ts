@@ -11,8 +11,26 @@ import {
 import { AUTH_OPTIONS, type AuthMethod } from "../network/auth";
 import { graphql } from "../network/graphql";
 import { makeGraphQLRequest } from "../network/request";
+import { formatErrors } from "../util/error";
 import { localStore, LocalStoreKeys, secureStore, SecureStoreKeys } from "../util/storage";
 import { state } from "./state";
+
+const LoginUserMutation = graphql(`
+  mutation LoginUser($username: String!, $password: String!) {
+    login(input: { username: $username, password: $password }) {
+      accessToken
+      refreshToken
+    }
+  }
+`);
+
+const TestQuery = graphql(`
+  query TestQuery {
+    aboutServer {
+      __typename
+    }
+  }
+`);
 
 export class ServerSettingsForm extends Form {
   override requiresExplicitSubmission = true;
@@ -30,11 +48,11 @@ export class ServerSettingsForm extends Form {
   });
 
   private usernameState = state({
-    initialValue: secureStore.getValue(SecureStoreKeys.username) ?? "",
+    initialValue: "",
   });
 
   private passwordState = state({
-    initialValue: secureStore.getValue(SecureStoreKeys.password) ?? "",
+    initialValue: "",
   });
 
   validateServerUrl() {
@@ -50,7 +68,6 @@ export class ServerSettingsForm extends Form {
 
   isLoggedIn() {
     const [authMethod] = this.authMethod.value;
-    if (authMethod === "none") return false;
 
     if (authMethod === "ui_login") {
       const accessToken = secureStore.getValue(SecureStoreKeys.accessToken);
@@ -58,18 +75,18 @@ export class ServerSettingsForm extends Form {
       return !!accessToken && !!refreshToken;
     }
 
-    if (authMethod === "basic_auth" || authMethod === "simple_login") {
-      const username = secureStore.getValue(SecureStoreKeys.username);
-      const password = secureStore.getValue(SecureStoreKeys.password);
-      return !!username && !!password;
+    if (authMethod === "basic_auth") {
+      const authString = secureStore.getValue(SecureStoreKeys.basicAuth);
+      return !!authString;
     }
+
+    return false;
   }
 
   clearLoginState() {
     secureStore.setValue(SecureStoreKeys.accessToken, null);
     secureStore.setValue(SecureStoreKeys.refreshToken, null);
-    secureStore.setValue(SecureStoreKeys.username, null);
-    secureStore.setValue(SecureStoreKeys.password, null);
+    secureStore.setValue(SecureStoreKeys.basicAuth, null);
     this.reloadForm();
     Application.invalidateDiscoverSections();
   }
@@ -121,7 +138,7 @@ export class ServerSettingsForm extends Form {
       SelectRow("auth-method-select", {
         title: "Authentication Method",
         layout: "list",
-        items: AUTH_OPTIONS.map((option) => ({
+        items: AUTH_OPTIONS.filter((option) => option !== "simple_login").map((option) => ({
           id: option,
           title: authMethodLabel(option),
         })),
@@ -174,21 +191,17 @@ export class ServerSettingsForm extends Form {
     const [authMethod] = this.authMethod.value;
     localStore.setValue(LocalStoreKeys.authMethod, authMethod ?? "none");
 
-    if (this.isLoggedIn()) return;
+    if (this.isLoggedIn()) {
+      console.log(`Already logged in, skipping login process.`);
+      return;
+    }
 
     const username = this.usernameState.value;
     const password = this.passwordState.value;
 
     if (authMethod === "ui_login") {
       const { data, errors } = await makeGraphQLRequest({
-        query: graphql(`
-          mutation LoginUser($username: String!, $password: String!) {
-            login(input: { username: $username, password: $password }) {
-              accessToken
-              refreshToken
-            }
-          }
-        `),
+        query: LoginUserMutation,
         variables: {
           username,
           password,
@@ -197,7 +210,7 @@ export class ServerSettingsForm extends Form {
       });
 
       if (!data || errors) {
-        console.error("Login failed:", errors);
+        console.error("Login failed:", formatErrors(errors));
         throw new Error(`Failed to log in with provided credentials.`);
       }
 
@@ -205,10 +218,18 @@ export class ServerSettingsForm extends Form {
       secureStore.setValue(SecureStoreKeys.refreshToken, data.login.refreshToken);
     }
 
-    if (authMethod === "basic_auth" || authMethod === "simple_login") {
-      const errorMessage = `Authentication method ${authMethod} is not implemented.`;
-      console.error(errorMessage);
-      throw new Error(errorMessage);
+    if (authMethod === "basic_auth") {
+      const authString = Application.base64Encode(`${username}:${password}`) as string;
+      secureStore.setValue(SecureStoreKeys.basicAuth, authString);
+    }
+
+    const { errors } = await makeGraphQLRequest({
+      query: TestQuery,
+    });
+
+    if (errors) {
+      this.clearLoginState();
+      throw new Error(formatErrors(errors));
     }
   }
 }

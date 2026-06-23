@@ -66,15 +66,13 @@ export const localStore = new Store<LocalStoreSchema>({
 // Secure Store
 
 type SecureStoreSchema = {
-  username: string;
-  password: string;
   "access-token": string;
   "refresh-token": string;
+  "basic-auth": string;
 };
 
 export const SecureStoreKeys = {
-  username: "username",
-  password: "password",
+  basicAuth: "basic-auth",
   accessToken: "access-token",
   refreshToken: "refresh-token",
 } satisfies Record<string, keyof SecureStoreSchema>;

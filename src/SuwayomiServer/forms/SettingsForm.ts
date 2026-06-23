@@ -9,14 +9,15 @@ import {
   type FormSectionElement,
 } from "@paperback/types";
 
+import { isAuthed } from "../network/auth";
+import { graphql, type ResultOf } from "../network/graphql";
+import { makeGraphQLRequest } from "../network/request";
 import {
   AvailableCategoriesFragment,
   getAvailableCategories,
   getAvailableSelectedCategories,
-} from "../data/categories";
-import { isAuthed } from "../network/auth";
-import { graphql, type ResultOf } from "../network/graphql";
-import { makeGraphQLRequest } from "../network/request";
+} from "../shared/category";
+import { formatErrors } from "../util/error";
 import { localStore, LocalStoreKeys } from "../util/storage";
 import { ServerSettingsForm } from "./ServerSettingsForm";
 import { state } from "./state";
@@ -70,7 +71,7 @@ export class SettingsForm extends Form {
     });
 
     if (errors || !data) {
-      console.error("failed to fetch settings data:", errors);
+      console.error("failed to fetch settings data:", formatErrors(errors));
       return;
     }
 
