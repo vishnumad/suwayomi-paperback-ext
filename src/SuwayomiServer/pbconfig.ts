@@ -3,8 +3,8 @@ import { ContentRating, SourceIntents, type ExtensionInfo } from "@paperback/typ
 export default {
   name: "Suwayomi Server",
   description:
-    "A Paperback extension for integrating with your self-hosted Suwayomi Server instance.",
-  version: "0.0.1",
+    "A Paperback extension that integrates with your self-hosted Suwayomi Server instance.",
+  version: "0.0.2",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
