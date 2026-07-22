@@ -1,7 +1,7 @@
 import type { Chapter, SourceManga } from "@paperback/types";
 
 import { graphql, readFragment, type FragmentOf } from "../../network/graphql";
-import { parseChapterTitle, parseChapterVolume } from "../../util/chapter";
+import { parseChapterTitle } from "../../util/chapter";
 
 export const MangaProgressFragment = graphql(`
   fragment MangaProgressFragment on Query {
@@ -35,7 +35,7 @@ export function getMangaProgressData(
     chapterId: chapter.id.toString(),
     sourceManga,
     title: parseChapterTitle(chapter.name),
-    volume: parseChapterVolume(chapter.name),
+    volume: 0,
     langCode: chapter.manga.source?.lang ?? "en",
     chapNum: chapter.chapterNumber,
     version: chapter.scanlator ?? undefined,
