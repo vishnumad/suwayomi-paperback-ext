@@ -6,7 +6,7 @@ import {
 } from "@paperback/types";
 
 import { graphql, readFragment, type FragmentOf } from "../../network/graphql";
-import { parseChapterTitle, parseChapterVolume } from "../../util/chapter";
+import { parseChapterTitle } from "../../util/chapter";
 import { localStore, LocalStoreKeys } from "../../util/storage";
 import { formatUrl } from "../../util/url";
 
@@ -88,7 +88,7 @@ export function getChaptersData(
       chapterId: chapter.id.toString(),
       sourceManga,
       title: parseChapterTitle(chapter.name),
-      volume: parseChapterVolume(chapter.name),
+      volume: 0,
       langCode: chapter.manga.source?.lang ?? "en",
       chapNum: chapter.chapterNumber,
       version: chapter.scanlator ?? undefined,

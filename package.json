@@ -1,7 +1,7 @@
 {
   "name": "suwayomi-paperback-ext",
   "private": true,
-  "description": "A Paperback extension for integrating with your self-hosted Suwayomi Server instance.",
+  "description": "A Paperback extension that integrates with your self-hosted Suwayomi Server instance.",
   "type": "module",
   "scripts": {
     "lint": "oxlint --type-aware --fix",
