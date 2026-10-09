@@ -21,8 +21,24 @@ export const MangaDetailsFragment = graphql(`
       artist
       author
       realUrl
+      initialized
       source {
         isNsfw
+      }
+    }
+  }
+`);
+
+export function isMangaInitialized(ref: FragmentOf<typeof MangaDetailsFragment>) {
+  const data = readFragment(MangaDetailsFragment, ref);
+  return data.manga.initialized;
+}
+
+export const FetchMangaMutation = graphql(`
+  mutation FetchManga($mangaId: Int!) {
+    fetchManga(input: { id: $mangaId }) {
+      manga {
+        id
       }
     }
   }
@@ -52,6 +68,10 @@ export function getMangaDetailsData(ref: FragmentOf<typeof MangaDetailsFragment>
 
 export const ChaptersFragment = graphql(`
   fragment ChaptersFragment on Query {
+    chaptersManga: manga(id: $mangaId) {
+      inLibrary
+      chaptersLastFetchedAt
+    }
     chapters(
       filter: {
         mangaId: { equalTo: $mangaId }
@@ -72,6 +92,20 @@ export const ChaptersFragment = graphql(`
           }
         }
       }
+    }
+  }
+`);
+
+export function shouldFetchChapters(ref: FragmentOf<typeof ChaptersFragment>) {
+  const { inLibrary, chaptersLastFetchedAt } = readFragment(ChaptersFragment, ref).chaptersManga;
+  // The server's library updater only refreshes chapters for manga in the library
+  return !inLibrary || !chaptersLastFetchedAt || chaptersLastFetchedAt === "0";
+}
+
+export const FetchChaptersMutation = graphql(`
+  mutation FetchChapters($mangaId: Int!) {
+    fetchChapters(input: { mangaId: $mangaId }) {
+      __typename
     }
   }
 `);

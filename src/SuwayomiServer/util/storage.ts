@@ -41,6 +41,7 @@ type LocalStoreSchema = {
   "visible-categories": string[];
   "discover-show-continue": boolean;
   "discover-show-updates": boolean;
+  "search-sources": string[];
 };
 
 export const LocalStoreKeys = {
@@ -49,6 +50,7 @@ export const LocalStoreKeys = {
   visibleCategories: "visible-categories",
   discoverShowContinue: "discover-show-continue",
   discoverShowUpdates: "discover-show-updates",
+  searchSources: "search-sources",
 } satisfies Record<string, keyof LocalStoreSchema>;
 
 export type LocalStore = Store<LocalStoreSchema>;
