@@ -12,12 +12,18 @@ import {
   type DiscoverSection,
   type DiscoverSectionItem,
   type PagedResults,
+  type SearchQuery,
+  type SearchResultItem,
+  type SortingOption,
+  type AdvancedSearchForm,
 } from "@paperback/types";
 
 import { ChapterProvider } from "./features/chapter/ChapterProvider";
 import { DiscoverSectionProvider } from "./features/discover-section/DiscoverSectionProvider";
 import { ManagedCollectionProvider } from "./features/managed-collection/ManagedCollectionProvider";
 import { MangaProgressProvider } from "./features/manga-progress/MangaProgressProvider";
+import type { SearchPageMetadata, SearchQueryMetadata } from "./features/search/data";
+import { SearchProvider } from "./features/search/SearchProvider";
 import { SettingsForm } from "./forms/SettingsForm";
 import { SuwayomiAuthInterceptor } from "./network/interceptor";
 import Config from "./pbconfig";
@@ -29,6 +35,7 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
   private chapterProvider = new ChapterProvider();
   private mangaProgressProvider = new MangaProgressProvider();
   private managedCollectionProvider = new ManagedCollectionProvider();
+  private searchProvider = new SearchProvider();
 
   async initialise(): Promise<void> {
     this.interceptor.registerInterceptor();
@@ -83,6 +90,26 @@ export class SuwayomiServerExtension implements ExtensionImpl<typeof Config> {
 
   async commitManagedCollectionChanges(changeset: ManagedCollectionChangeset): Promise<void> {
     return this.managedCollectionProvider.commitManagedCollectionChanges(changeset);
+  }
+
+  async getSearchResults(
+    query: SearchQuery<Partial<SearchQueryMetadata>>,
+    metadata: SearchPageMetadata | undefined,
+    sortingOption: SortingOption | undefined,
+  ): Promise<PagedResults<SearchResultItem>> {
+    return this.searchProvider.getSearchResults(query, metadata, sortingOption);
+  }
+
+  async getSortingOptions(
+    query: SearchQuery<Partial<SearchQueryMetadata>>,
+  ): Promise<SortingOption[]> {
+    return this.searchProvider.getSortingOptions(query);
+  }
+
+  async getAdvancedSearchForm(
+    query: SearchQuery<Partial<SearchQueryMetadata>>,
+  ): Promise<AdvancedSearchForm> {
+    return this.searchProvider.getAdvancedSearchForm(query);
   }
 
   async getSettingsForm(): Promise<Form> {

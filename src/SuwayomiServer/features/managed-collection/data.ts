@@ -68,3 +68,11 @@ export const UpdateCategoriesMutation = graphql(`
     }
   }
 `);
+
+export const AddMangasToLibraryMutation = graphql(`
+  mutation AddMangasToLibrary($mangaIds: [Int!]!) {
+    updateMangas(input: { ids: $mangaIds, patch: { inLibrary: true } }) {
+      __typename
+    }
+  }
+`);

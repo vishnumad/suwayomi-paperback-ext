@@ -4,7 +4,7 @@ export default {
   name: "Suwayomi Server",
   description:
     "A Paperback extension that integrates with your self-hosted Suwayomi Server instance.",
-  version: "0.0.2",
+  version: "0.0.3",
   icon: "icon.png",
   language: "en",
   contentRating: ContentRating.EVERYONE,
@@ -14,6 +14,7 @@ export default {
     SourceIntents.CHAPTER_PROVIDING,
     SourceIntents.PROGRESS_PROVIDING,
     SourceIntents.MANAGED_COLLECTION_PROVIDING,
+    SourceIntents.SEARCH_RESULT_PROVIDING,
   ],
   badges: [
     {

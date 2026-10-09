@@ -10,6 +10,7 @@ import { makeGraphQLRequest } from "../../network/request";
 import { AvailableCategoriesFragment, getAvailableCategories } from "../../shared/category";
 import { formatErrors } from "../../util/error";
 import {
+  AddMangasToLibraryMutation,
   AllCategoryMangasFragment,
   getAllCategoryMangasData,
   UpdateCategoriesMutation,
@@ -76,6 +77,22 @@ export class ManagedCollectionProvider implements ManagedCollectionProviding {
     const removedMangas = changeset.deletions.map((manga) => parseInt(manga.mangaId, 10));
 
     if (addedMangas.length > 0) {
+      // Manga found through source search aren't in the library yet
+      const { errors: libraryErrors } = await makeGraphQLRequest({
+        query: AddMangasToLibraryMutation,
+        variables: {
+          mangaIds: addedMangas,
+        },
+      });
+
+      if (libraryErrors) {
+        console.error(
+          `commitManagedCollectionChanges: failed to add manga(s) to library`,
+          formatErrors(libraryErrors),
+        );
+        throw new Error(`Failed to add manga(s) to collection ${changeset.collection.title}`);
+      }
+
       const { errors } = await makeGraphQLRequest({
         query: UpdateCategoriesMutation,
         variables: {
